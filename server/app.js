@@ -154,7 +154,7 @@ app.delete('/api/leaves/:id', async (req, res) => {
 });
 
 // Search leaves by employee ID and date range
-app.get('/api/leaves/search', async (req, res) => {
+app.get('/api/search', async (req, res) => {
   try {
     const { employeeId, startDate, endDate } = req.query;
     

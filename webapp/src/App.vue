@@ -8,32 +8,41 @@
       <DateRangeSearch @search="handleSearch" />
     </div>
 
-    <LeaveApplicationForm @submit="handleAddLeaveApplication" />
+    <div v-if="loading" class="text-center py-4">
+      Loading...
+    </div>
+    <div v-else-if="error" class="text-center py-4 text-red-500">
+      {{ error }}
+    </div>
+    <div v-else>
+      <LeaveApplicationForm @submit="handleAddLeaveApplication" />
 
-    <div class="mt-6">
-      <LeaveApplicationTable 
-        :applications="filteredApplications"
-        @edit="handleEditLeaveApplication"
-        @delete="handleDeleteLeaveApplication"
+      <div class="mt-6">
+        <LeaveApplicationTable 
+          :applications="filteredApplications"
+          @edit="handleEditLeaveApplication"
+          @delete="handleDeleteLeaveApplication"
+        />
+      </div>
+
+      <EditLeaveModal
+        v-if="editingApplication"
+        :is-open="isEditModalOpen"
+        :application="editingApplication"
+        @close="isEditModalOpen = false"
+        @submit="handleUpdateLeaveApplication"
       />
     </div>
-
-    <EditLeaveModal
-      v-if="editingApplication"
-      :is-open="isEditModalOpen"
-      :application="editingApplication"
-      @close="isEditModalOpen = false"
-      @submit="handleUpdateLeaveApplication"
-    />
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import DateRangeSearch from './components/DateRangeSearch.vue';
 import LeaveApplicationForm from './components/LeaveApplicationForm.vue';
 import LeaveApplicationTable from './components/LeaveApplicationTable.vue';
 import EditLeaveModal from './components/EditLeaveModal.vue';
+import api from './services/api';
 
 export default {
   components: {
@@ -43,42 +52,28 @@ export default {
     EditLeaveModal
   },
   setup() {
-    const leaveApplications = ref([
-      {
-        id: "1",
-        employeeId: "E001",
-        name: "Alice Johnson",
-        leaveType: "Annual",
-        startDate: "2023-11-01",
-        endDate: "2023-11-10",
-        status: "Pending",
-      },
-      {
-        id: "2",
-        employeeId: "E002",
-        name: "Bob Smith",
-        leaveType: "Sick",
-        startDate: "2023-11-05",
-        endDate: "2023-11-07",
-        status: "Approved",
-      },
-      {
-        id: "3",
-        employeeId: "E003",
-        name: "Carol White",
-        leaveType: "Emergency",
-        startDate: "2023-11-12",
-        endDate: "2023-11-15",
-        status: "Rejected",
-      },
-    ]);
-
+    const leaveApplications = ref([]);
+    const loading = ref(true);
+    const error = ref(null);
     const editingApplication = ref(null);
     const isEditModalOpen = ref(false);
     const searchQuery = ref({
       employeeId: '',
       startDate: '',
       endDate: ''
+    });
+
+    // Fetch all leave applications when component mounts
+    onMounted(async () => {
+      try {
+        const response = await api.getLeaves();
+        leaveApplications.value = response.data;
+        loading.value = false;
+      } catch (err) {
+        error.value = 'Failed to load leave applications. Please try again later.';
+        loading.value = false;
+        console.error('Error fetching leaves:', err);
+      }
     });
 
     const filteredApplications = computed(() => {
@@ -105,13 +100,20 @@ export default {
       });
     });
 
-    function handleAddLeaveApplication(application) {
-      const newApplication = {
-        ...application,
-        id: Math.random().toString(36).substring(2, 9),
-      };
-
-      leaveApplications.value.push(newApplication);
+    async function handleAddLeaveApplication(application) {
+      try {
+        const response = await api.createLeave(application);
+        leaveApplications.value.push(response.data);
+        // Show success message
+        alert('Leave application created successfully!');
+      } catch (err) {
+        console.error('Error adding leave application:', err);
+        if (err.response && err.response.data && err.response.data.message) {
+          alert(err.response.data.message);
+        } else {
+          alert('Failed to create leave application. Please try again.');
+        }
+      }
     }
 
     function handleEditLeaveApplication(application) {
@@ -119,21 +121,65 @@ export default {
       isEditModalOpen.value = true;
     }
 
-    function handleUpdateLeaveApplication(updatedApplication) {
-      const index = leaveApplications.value.findIndex(app => app.id === updatedApplication.id);
-      if (index !== -1) {
-        leaveApplications.value[index] = updatedApplication;
+    async function handleUpdateLeaveApplication(updatedApplication) {
+      try {
+        const response = await api.updateLeave(updatedApplication._id, updatedApplication);
+        const index = leaveApplications.value.findIndex(app => app._id === updatedApplication._id);
+        if (index !== -1) {
+          leaveApplications.value[index] = response.data;
+        }
+        isEditModalOpen.value = false;
+        editingApplication.value = null;
+        // Show success message
+        alert('Leave application updated successfully!');
+      } catch (err) {
+        console.error('Error updating leave application:', err);
+        alert('Failed to update leave application. Please try again.');
       }
-      isEditModalOpen.value = false;
-      editingApplication.value = null;
     }
 
-    function handleDeleteLeaveApplication(id) {
-      leaveApplications.value = leaveApplications.value.filter(app => app.id !== id);
+    async function handleDeleteLeaveApplication(id) {
+      if (confirm('Are you sure you want to delete this leave application?')) {
+        try {
+          await api.deleteLeave(id);
+          leaveApplications.value = leaveApplications.value.filter(app => app._id !== id);
+          // Show success message
+          alert('Leave application deleted successfully!');
+        } catch (err) {
+          console.error('Error deleting leave application:', err);
+          alert('Failed to delete leave application. Please try again.');
+        }
+      }
     }
 
-    function handleSearch(query) {
+    async function handleSearch(query) {
       searchQuery.value = query;
+      
+      // If we have search parameters, use the API to search
+      if (query.employeeId || (query.startDate && query.endDate)) {
+        try {
+          loading.value = true;
+          const response = await api.searchLeaves(query);
+          leaveApplications.value = response.data;
+          loading.value = false;
+        } catch (err) {
+          console.error('Error searching leaves:', err);
+          error.value = 'Failed to search leave applications. Please try again.';
+          loading.value = false;
+        }
+      } else {
+        // If no search parameters, fetch all leaves
+        try {
+          loading.value = true;
+          const response = await api.getLeaves();
+          leaveApplications.value = response.data;
+          loading.value = false;
+        } catch (err) {
+          console.error('Error fetching leaves:', err);
+          error.value = 'Failed to load leave applications. Please try again.';
+          loading.value = false;
+        }
+      }
     }
 
     return {
@@ -141,6 +187,8 @@ export default {
       filteredApplications,
       editingApplication,
       isEditModalOpen,
+      loading,
+      error,
       handleAddLeaveApplication,
       handleEditLeaveApplication,
       handleUpdateLeaveApplication,

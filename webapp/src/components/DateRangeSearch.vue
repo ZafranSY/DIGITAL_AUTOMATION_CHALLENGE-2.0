@@ -11,21 +11,20 @@
     </div>
     <div class="flex items-center gap-2">
       <input 
-        type="text" 
-        placeholder="YYYY-MM-DD" 
+        type="date" 
         class="form-control" 
         v-model="startDate"
-        style="width: 130px;"
+        style="width: 150px;"
       />
       <span>to</span>
       <input 
-        type="text" 
-        placeholder="YYYY-MM-DD" 
+        type="date" 
         class="form-control" 
         v-model="endDate"
-        style="width: 130px;"
+        style="width: 150px;"
       />
       <button class="btn btn-primary" @click="search">Search</button>
+      <button class="btn btn-secondary" @click="reset">Reset</button>
     </div>
   </div>
 </template>
@@ -47,12 +46,24 @@ export default {
         endDate: endDate.value
       });
     }
+    
+    function reset() {
+      employeeId.value = '';
+      startDate.value = '';
+      endDate.value = '';
+      emit('search', {
+        employeeId: '',
+        startDate: '',
+        endDate: ''
+      });
+    }
 
     return {
       employeeId,
       startDate,
       endDate,
-      search
+      search,
+      reset
     };
   }
 };

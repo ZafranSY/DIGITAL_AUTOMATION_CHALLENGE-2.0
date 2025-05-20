@@ -1,6 +1,9 @@
 <template>
   <div class="card">
     <h2 class="text-lg font-medium mb-4">Add Leave Application</h2>
+    <div v-if="formError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+      {{ formError }}
+    </div>
     <form @submit.prevent="submitForm">
       <div class="grid grid-cols-2">
         <div class="form-group">
@@ -46,9 +49,8 @@
           <input
             id="startDate"
             v-model="formData.startDate"
-            type="text"
+            type="date"
             required
-            placeholder="YYYY-MM-DD"
             class="form-control"
           />
         </div>
@@ -58,9 +60,8 @@
           <input
             id="endDate"
             v-model="formData.endDate"
-            type="text"
+            type="date"
             required
-            placeholder="YYYY-MM-DD"
             class="form-control"
           />
         </div>
@@ -81,7 +82,9 @@
       </div>
 
       <div class="mt-6 flex gap-4">
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+          {{ isSubmitting ? 'Submitting...' : 'Submit' }}
+        </button>
         <button type="button" @click="resetForm" class="btn btn-secondary">Reset</button>
       </div>
     </form>
@@ -89,7 +92,7 @@
 </template>
 
 <script>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import { LeaveTypes, StatusTypes } from '../types';
 
 export default {
@@ -104,9 +107,40 @@ export default {
       status: StatusTypes.PENDING
     });
 
-    function submitForm() {
-      emit('submit', { ...formData });
-      resetForm();
+    const formError = ref(null);
+    const isSubmitting = ref(false);
+
+    function validateDates() {
+      if (!formData.startDate || !formData.endDate) return true;
+      
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
+      
+      if (end < start) {
+        formError.value = 'End date cannot be before start date';
+        return false;
+      }
+      
+      return true;
+    }
+
+    async function submitForm() {
+      formError.value = null;
+      
+      if (!validateDates()) {
+        return;
+      }
+      
+      isSubmitting.value = true;
+      
+      try {
+        emit('submit', { ...formData });
+        resetForm();
+      } catch (error) {
+        formError.value = error.message || 'An error occurred while submitting the form';
+      } finally {
+        isSubmitting.value = false;
+      }
     }
 
     function resetForm() {
@@ -116,10 +150,13 @@ export default {
       formData.startDate = '';
       formData.endDate = '';
       formData.status = StatusTypes.PENDING;
+      formError.value = null;
     }
 
     return {
       formData,
+      formError,
+      isSubmitting,
       submitForm,
       resetForm
     };

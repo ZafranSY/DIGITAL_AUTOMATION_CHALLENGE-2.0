@@ -6,6 +6,9 @@
         <button @click="$emit('close')" class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
+        <div v-if="formError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {{ formError }}
+        </div>
         <form @submit.prevent="submitForm">
           <div class="grid grid-cols-2">
             <div class="form-group">
@@ -49,9 +52,8 @@
               <input
                 id="edit-startDate"
                 v-model="formData.startDate"
-                type="text"
+                type="date"
                 required
-                placeholder="YYYY-MM-DD"
                 class="form-control"
               />
             </div>
@@ -61,9 +63,8 @@
               <input
                 id="edit-endDate"
                 v-model="formData.endDate"
-                type="text"
+                type="date"
                 required
-                placeholder="YYYY-MM-DD"
                 class="form-control"
               />
             </div>
@@ -85,7 +86,9 @@
 
           <div class="modal-footer">
             <button type="button" @click="$emit('close')" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+              {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
+            </button>
           </div>
         </form>
       </div>
@@ -94,7 +97,7 @@
 </template>
 
 <script>
-import { reactive, watch } from 'vue';
+import { reactive, ref, watch } from 'vue';
 
 export default {
   props: {
@@ -110,7 +113,7 @@ export default {
   emits: ['close', 'submit'],
   setup(props, { emit }) {
     const formData = reactive({
-      id: '',
+      _id: '',
       employeeId: '',
       name: '',
       leaveType: '',
@@ -118,20 +121,66 @@ export default {
       endDate: '',
       status: ''
     });
+    
+    const formError = ref(null);
+    const isSubmitting = ref(false);
+
+    // Format dates for input fields
+    function formatDateForInput(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    }
 
     // Update form data when the application prop changes
     watch(() => props.application, (newApplication) => {
       if (newApplication) {
-        Object.assign(formData, newApplication);
+        formData._id = newApplication._id;
+        formData.employeeId = newApplication.employeeId;
+        formData.name = newApplication.name;
+        formData.leaveType = newApplication.leaveType;
+        formData.startDate = formatDateForInput(newApplication.startDate);
+        formData.endDate = formatDateForInput(newApplication.endDate);
+        formData.status = newApplication.status;
       }
     }, { immediate: true });
 
-    function submitForm() {
-      emit('submit', { ...formData });
+    function validateDates() {
+      if (!formData.startDate || !formData.endDate) return true;
+      
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
+      
+      if (end < start) {
+        formError.value = 'End date cannot be before start date';
+        return false;
+      }
+      
+      return true;
+    }
+
+    async function submitForm() {
+      formError.value = null;
+      
+      if (!validateDates()) {
+        return;
+      }
+      
+      isSubmitting.value = true;
+      
+      try {
+        emit('submit', { ...formData });
+      } catch (error) {
+        formError.value = error.message || 'An error occurred while updating the leave application';
+      } finally {
+        isSubmitting.value = false;
+      }
     }
 
     return {
       formData,
+      formError,
+      isSubmitting,
       submitForm
     };
   }
