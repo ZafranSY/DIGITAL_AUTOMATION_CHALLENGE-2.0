@@ -56,8 +56,7 @@ const leaveSchema = new mongoose.Schema({
     default: 'Pending'
   },
   days: {
-    type: Number,
-    required: true
+    type: Number
   },
   createdAt: {
     type: Date,
@@ -74,7 +73,7 @@ leaveSchema.pre('save', function(next) {
 });
 
 // Create Leave model
-const Leave = mongoose.model('Leave', leaveSchema);
+const Leave = mongoose.model('leaves', leaveSchema);
 
 // API Routes
 
@@ -82,136 +81,52 @@ const Leave = mongoose.model('Leave', leaveSchema);
 app.get('/api/leaves', async (req, res) => {
   try {
     const leaves = await Leave.find().sort({ createdAt: -1 });
+    // Transform MongoDB _id to id for frontend compatibility
+    const transformedLeaves = leaves.map(leave => {
+      const leavePlain = leave.toObject();
+      leavePlain.id = leavePlain._id.toString();
+      return leavePlain;
+    });
+    res.json(transformedLeaves);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get('/api/leaves/employee/:employeeId', async (req, res) => {
+  try {
+    const employeeId = req.params.employeeId;
+    let leaves = await Leave.find({ employeeId }).lean();
+
+    if (leaves.length === 0) {
+      return res.status(404).json({ message: `No leave records found for employee ${employeeId}` });
+    }
+
     res.json(leaves);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
-
-// Get leave by ID
-app.get('/api/leaves/:id', async (req, res) => {
+app.put("/api/rejectleaves/:employeeId", async (req, res)=>{
   try {
-    const leave = await Leave.findById(req.params.id);
-    if (!leave) {
-      return res.status(404).json({ message: 'Leave not found' });
-    }
-    res.json(leave);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Create new leave
-app.post('/api/leaves', async (req, res) => {
-  try {
-    const { employeeId, startDate, endDate } = req.body;
-    
-    // Validate date range
-    if (!isValidDateRange(startDate, endDate)) {
-      return res.status(400).json({ message: 'End date must be after or equal to start date' });
-    }
-    
-    // Convert string dates to Date objects
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // Check if there's already a leave application for this employee in this date range
-    const existingLeave = await Leave.findOne({
-      employeeId,
-      $or: [
-        // Check if the new leave overlaps with any existing leave
-        {
-          startDate: { $lte: end },
-          endDate: { $gte: start }
-        }
-      ]
-    });
-    
-    if (existingLeave) {
-      return res.status(400).json({ 
-        message: 'Duplicate leave application. Employee already has leave during this period.' 
-      });
-    }
-    
-    // Calculate number of days
-    const days = calculateDays(startDate, endDate);
-    
-    const newLeave = new Leave({
-      ...req.body,
-      days
-    });
-    
-    const savedLeave = await newLeave.save();
-    res.status(201).json(savedLeave);
+    const employeeId = req.params.employeeId;
+    let leaves = await Leave.findByIdAndUpdate(
+      {employeeId},  
+      { status: 'Rejected' }, 
+      { new: true, runValidators: true })
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-});
-
-// Update leave
-app.put('/api/leaves/:id', async (req, res) => {
+})
+app.get('/api/debug/leaves', async (req, res) => {
   try {
-    const { startDate, endDate } = req.body;
+    // Get raw data from MongoDB
+    const rawData = await mongoose.connection.db.collection('leaves').find({}).toArray();
+    console.log('Raw database data:', JSON.stringify(rawData, null, 2));
     
-    // Validate date range if both dates are provided
-    if (startDate && endDate && !isValidDateRange(startDate, endDate)) {
-      return res.status(400).json({ message: 'End date must be after or equal to start date' });
-    }
-    
-    // If dates are provided, calculate days
-    if (startDate && endDate) {
-      req.body.days = calculateDays(startDate, endDate);
-    }
-    
-    const updatedLeave = await Leave.findByIdAndUpdate(
-      req.params.id, 
-      req.body, 
-      { new: true, runValidators: true }
-    );
-    
-    if (!updatedLeave) {
-      return res.status(404).json({ message: 'Leave not found' });
-    }
-    
-    res.json(updatedLeave);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Delete leave
-app.delete('/api/leaves/:id', async (req, res) => {
-  try {
-    const deletedLeave = await Leave.findByIdAndDelete(req.params.id);
-    
-    if (!deletedLeave) {
-      return res.status(404).json({ message: 'Leave not found' });
-    }
-    
-    res.json({ message: 'Leave deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Search leaves by employee ID and date range
-app.get('/api/search', async (req, res) => {
-  try {
-    const { employeeId, startDate, endDate } = req.query;
-    
-    let query = {};
-    
-    if (employeeId) {
-      query.employeeId = { $regex: employeeId, $options: 'i' };
-    }
-    
-    if (startDate && endDate) {
-      query.startDate = { $gte: new Date(startDate) };
-      query.endDate = { $lte: new Date(endDate) };
-    }
-    
-    const leaves = await Leave.find(query).sort({ createdAt: -1 });
-    res.json(leaves);
+    res.json({
+      count: rawData.length,
+      data: rawData
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -336,16 +251,16 @@ app.get('/api/employees/:employeeId/summary', async (req, res) => {
     }
     
     // Calculate total days by leave type
-    const totalDays = leaves.reduce((acc, leave) => acc + leave.days, 0);
+    const totalDays = leaves.reduce((acc, leave) => acc + (leave.days || 0), 0);
     const annualDays = leaves
       .filter(leave => leave.leaveType === 'Annual')
-      .reduce((acc, leave) => acc + leave.days, 0);
+      .reduce((acc, leave) => acc + (leave.days || 0), 0);
     const sickDays = leaves
       .filter(leave => leave.leaveType === 'Sick')
-      .reduce((acc, leave) => acc + leave.days, 0);
+      .reduce((acc, leave) => acc + (leave.days || 0), 0);
     const emergencyDays = leaves
       .filter(leave => leave.leaveType === 'Emergency')
-      .reduce((acc, leave) => acc + leave.days, 0);
+      .reduce((acc, leave) => acc + (leave.days || 0), 0);
     
     // Get the employee name from the most recent record
     const employeeName = leaves[0].name;

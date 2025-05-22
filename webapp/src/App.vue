@@ -213,37 +213,43 @@ export default {
       }
     };
 
-    // Update leave status
-    const updateLeaveStatus = async (leaveId, newStatus) => {
-      try {
-        const leaveToUpdate = leaves.value.find(leave => leave.id === leaveId);
-        if (leaveToUpdate) {
-          const updatedLeave = { ...leaveToUpdate, status: newStatus };
-          const response = await api.updateLeave(leaveId, updatedLeave);
-          const index = leaves.value.findIndex(leave => leave.id === leaveId);
-          if (index !== -1) {
-            leaves.value[index] = response.data;
-          }
-        }
-      } catch (error) {
-        console.error('Failed to update leave status:', error);
-        alert('Failed to update leave status');
-      }
-    };
+    // Update the deleteLeave method in App.vue
+const deleteLeave = async (leaveId) => {
+  if (confirm('Are you sure you want to delete this leave application?')) {
+    try {
+      await api.deleteLeave(leaveId);
+      leaves.value = leaves.value.filter(leave => leave.id !== leaveId);
+    } catch (error) {
+      console.error('Failed to delete leave:', error);
+      alert('Failed to delete leave application');
+    }
+  }
+};
 
-    // Delete a leave application
-    const deleteLeave = async (leaveId) => {
-      if (confirm('Are you sure you want to delete this leave application?')) {
-        try {
-          await api.deleteLeave(leaveId);
-          leaves.value = leaves.value.filter(leave => leave.id !== leaveId);
-        } catch (error) {
-          console.error('Failed to delete leave:', error);
-          alert('Failed to delete leave application');
-        }
+// Update the updateLeaveStatus method in App.vue
+const updateLeaveStatus = async (leaveId, newStatus) => {
+  try {
+    const leaveToUpdate = leaves.value.find(leave => leave.id === leaveId);
+    if (leaveToUpdate) {
+      let response;
+      
+      if (newStatus === 'Rejected') {
+        response = await api.rejectLeave(leaveId);
+      } else {
+        const updatedLeave = { ...leaveToUpdate, status: newStatus };
+        response = await api.updateLeave(leaveId, updatedLeave);
       }
-    };
-
+      
+      const index = leaves.value.findIndex(leave => leave.id === leaveId);
+      if (index !== -1) {
+        leaves.value[index] = response.data;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to update leave status:', error);
+    alert('Failed to update leave status');
+  }
+};
     // Search leaves by date range and employee ID
     const searchLeaves = async (params) => {
       searchParams.value = { ...params };

@@ -17,13 +17,13 @@ export default {
   },
 
   // Get a single leave by ID
-  getLeave(id) {
-    return apiClient.get(`/leaves/${id}`);
+  getLeave(employeeId) {
+    return apiClient.get(`/leaves/employee/${employeeId}`);
   },
 
   // Create a new leave
   createLeave(leave) {
-    return apiClient.post('/leaves', leave);
+    return apiClient.post('/addleaves', leave);
   },
 
   // Update a leave
@@ -33,7 +33,12 @@ export default {
 
   // Delete a leave
   deleteLeave(id) {
-    return apiClient.delete(`/leaves/${id}`);
+    return apiClient.delete(`/deleteleaves/${id}`);
+  },
+
+  // Reject a leave
+  rejectLeave(id) {
+    return apiClient.put(`/rejectleaves/${id}`);
   },
 
   // Search leaves
