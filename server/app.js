@@ -38,10 +38,11 @@ const leaveSchema = new mongoose.Schema({
     trim: true
   },
   leaveType: {
-    type: String,
-    enum: ['Annual', 'Sick', 'Emergency'],
-    required: true
-  },
+  type: String,
+// Add "Compassionate" to allowed types
+enum: ['Annual', 'Sick', 'Emergency', 'Compassionate'],
+ required: true
+},
   startDate: {
     type: Date,
     required: true
@@ -91,32 +92,68 @@ app.get('/api/leaves', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
-app.get('/api/leaves/employee/:employeeId', async (req, res) => {
+});app.put("/api/rejectleaves/:employeeId", async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
-    let leaves = await Leave.find({ employeeId }).lean();
+    
+    console.log(`Attempting to reject leaves for employee: ${employeeId}`);
+    
+    // First find the documents that would be updated
+    const matchingDocs = await Leave.find({ employeeId: employeeId });
+    console.log(`Found ${matchingDocs.length} matching documents`);
+    
+    const result = await Leave.updateMany(
+      { employeeId: employeeId },
+      { $set: { status: 'Rejected' } },
+      { runValidators: true }
+    );
 
-    if (leaves.length === 0) {
-      return res.status(404).json({ message: `No leave records found for employee ${employeeId}` });
+    console.log(`Update result: ${JSON.stringify(result)}`);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        message: `No leaves found for employee ${employeeId}`,
+        employeeId: employeeId
+      });
     }
 
-    res.json(leaves);
+    res.json({
+      message: `Rejected ${result.modifiedCount} leaves`,
+      employeeId: employeeId
+    });
+    
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    console.error("Error rejecting leaves:", error);
+    res.status(400).json({ error: error.message });
   }
 });
-app.put("/api/rejectleaves/:employeeId", async (req, res)=>{
+app.put("/api/rejectleaves/:employeeId", async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
-    let leaves = await Leave.findByIdAndUpdate(
-      {employeeId},  
-      { status: 'Rejected' }, 
-      { new: true, runValidators: true })
+    
+    const result = await Leave.updateMany(
+      { employeeId: employeeId },
+      { $set: { status: 'Rejected' } },
+      { runValidators: true }
+    );
+
+    // Check if any documents were found
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        message: `No leaves found for employee ${employeeId}`,
+        employeeId: employeeId
+      });
+    }
+
+    res.json({
+      message: `Rejected ${result.modifiedCount} leaves`,
+      employeeId: employeeId
+    });
+    
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
-})
+});
 app.get('/api/debug/leaves', async (req, res) => {
   try {
     // Get raw data from MongoDB
