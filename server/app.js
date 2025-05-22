@@ -128,7 +128,7 @@ app.put("/api/rejectleaves/:employeeId", async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
-app.put("/api/approveleaves/:employeeId", async ( req,res)=>{
+app.put("/api/approveleaves/:employeeId", async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
     const matchingDocs = await Leave.find({employeeId : employeeId});
@@ -154,6 +154,17 @@ app.put("/api/approveleaves/:employeeId", async ( req,res)=>{
   } catch (error) {
     console.error("Error rejecting leaves:", error);
     res.status(400).json({ error: error.message });
+  }
+})
+app.post("/api/addleaves", async (req, res)=>{
+  try {
+    const newLeaves = req.body;
+    Leave.push(newLeaves)
+      res.status(201).json(newLeave);
+
+  } catch (error) {
+        res.status(400).json({ error: error.message });
+
   }
 })
 app.get('/api/debug/leaves', async (req, res) => {
