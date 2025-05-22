@@ -229,27 +229,41 @@ const deleteLeave = async (leaveId) => {
 // Update the updateLeaveStatus method in App.vue
 const updateLeaveStatus = async (leaveId, newStatus) => {
   try {
-    const leaveToUpdate = leaves.value.find(leave => leave.id === leaveId);
+    const leaveToUpdate = leaves.value.find(leave => leave.employeeId === leaveId);
     if (leaveToUpdate) {
       let response;
-      
+
+      // Call appropriate API based on the status
       if (newStatus === 'Rejected') {
         response = await api.rejectLeave(leaveId);
-      } else {
+      } else if(newStatus === 'Approved')
+      {
+        response = await api.approveLeave(leaveId)
+      }
+      else {
         const updatedLeave = { ...leaveToUpdate, status: newStatus };
         response = await api.updateLeave(leaveId, updatedLeave);
       }
-      
-      const index = leaves.value.findIndex(leave => leave.id === leaveId);
-      if (index !== -1) {
-        leaves.value[index] = response.data;
+
+      // Merge API response with existing leave data
+      const index = leaves.value.findIndex(leave => leave.employeeId === leaveId);
+      if (index !== -1 && response.data) {
+        leaves.value[index] = {
+          ...leaves.value[index], // Keep existing fields
+          ...response.data       // Update only the fields returned by API
+        };
       }
+
+      // Reload the page to reflect updated data
+      window.location.reload();
     }
   } catch (error) {
     console.error('Failed to update leave status:', error);
     alert('Failed to update leave status');
   }
 };
+
+
     // Search leaves by date range and employee ID
     const searchLeaves = async (params) => {
       searchParams.value = { ...params };

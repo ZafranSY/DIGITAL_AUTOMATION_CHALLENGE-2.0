@@ -22,7 +22,9 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="leave in leaves" :key="leave.id" :class="'status-' + leave.status.toLowerCase()">
+<tr v-for="leave in leaves" 
+    :key="leave.employeeId" 
+    :class="'status-' + (leave.status ? leave.status.toLowerCase() : '')">
             <td>{{ leave.employeeId }}</td>
             <td>{{ leave.name }}</td>
             <td>{{ leave.leaveType }}</td>
@@ -30,7 +32,7 @@
             <td>{{ formatDate(leave.endDate) }}</td>
             <td>{{ calculateDuration(leave.startDate, leave.endDate) }} days</td>
             <td>
-              <span class="status-badge" :class="'status-' + leave.status.toLowerCase()">
+              <span class="status-badge" :class="'status-' + leave.status">
                 {{ leave.status }}
               </span>
             </td>
@@ -43,7 +45,7 @@
                 <div class="status-actions" v-if="leave.status === 'Pending'">
                   <button 
                     class="action-btn approve" 
-                    @click="$emit('status-change', leave.id, 'Approved')"
+                    @click="$emit('status-change', leave.employeeId, 'Approved')"
                     title="Approve"
                   >
                     <i class="fas fa-check"></i>
@@ -51,14 +53,14 @@
                   
                   <button 
                     class="action-btn reject" 
-                    @click="$emit('status-change', leave.id, 'Rejected')"
+                    @click="$emit('status-change', leave.employeeId, 'Rejected')"
                     title="Reject"
                   >
                     <i class="fas fa-times"></i>
                   </button>
                 </div>
                 
-                <button class="action-btn delete" @click="$emit('delete', leave.id)" title="Delete">
+                <button class="action-btn delete" @click="$emit('delete', leave.employeeId)" title="Delete">
                   <i class="fas fa-trash-alt"></i>
                 </button>
               </div>

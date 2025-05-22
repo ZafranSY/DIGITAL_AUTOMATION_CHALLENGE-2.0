@@ -37,10 +37,12 @@ export default {
   },
 
   // Reject a leave
-  rejectLeave(id) {
-    return apiClient.put(`/rejectleaves/${id}`);
+  rejectLeave(employeeId) {
+    return apiClient.put(`/rejectleaves/${employeeId}`);
   },
-
+  approveLeave(employeeId){
+    return apiClient.put(`/approveleaves/${employeeId}`)
+  },
   // Search leaves
   searchLeaves(params) {
     return apiClient.get('/search', { params });

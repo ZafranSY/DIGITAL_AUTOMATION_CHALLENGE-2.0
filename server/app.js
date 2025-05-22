@@ -92,7 +92,8 @@ app.get('/api/leaves', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});app.put("/api/rejectleaves/:employeeId", async (req, res) => {
+});
+app.put("/api/rejectleaves/:employeeId", async (req, res) => {
   try {
     const employeeId = req.params.employeeId;
     
@@ -127,33 +128,34 @@ app.get('/api/leaves', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
-app.put("/api/rejectleaves/:employeeId", async (req, res) => {
+app.put("/api/approveleaves/:employeeId", async ( req,res)=>{
   try {
     const employeeId = req.params.employeeId;
-    
-    const result = await Leave.updateMany(
-      { employeeId: employeeId },
-      { $set: { status: 'Rejected' } },
-      { runValidators: true }
-    );
+    const matchingDocs = await Leave.find({employeeId : employeeId});
+    console.log(`Found ${matchingDocs.length} matching documents`);
 
-    // Check if any documents were found
-    if (result.matchedCount === 0) {
+    const result =await Leave.updateMany(
+      {employeeId: employeeId},
+      {$set : {status:"Approved"}},
+      {runValidators : true}
+    )
+    if(result.matchedCount == 0)
+    {
       return res.status(404).json({
-        message: `No leaves found for employee ${employeeId}`,
-        employeeId: employeeId
-      });
-    }
+        message: `No leaves found${employeeId}`,
+        employeeId:employeeId
+      })
 
-    res.json({
-      message: `Rejected ${result.modifiedCount} leaves`,
-      employeeId: employeeId
-    });
-    
+    }
+          res.json(
+       { message: `Approved ${result.modifiedCount} leaves`,
+        employeeId:employeeId}
+      )
   } catch (error) {
+    console.error("Error rejecting leaves:", error);
     res.status(400).json({ error: error.message });
   }
-});
+})
 app.get('/api/debug/leaves', async (req, res) => {
   try {
     // Get raw data from MongoDB
