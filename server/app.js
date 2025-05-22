@@ -3,7 +3,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const path = require('path');
 require('dotenv').config();
+
+// Import utilities
+const { isValidDateRange, calculateDays } = require('./utils/dateUtils');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,11 +29,13 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/leave-man
 const leaveSchema = new mongoose.Schema({
   employeeId: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true
   },
   leaveType: {
     type: String,
@@ -49,10 +55,22 @@ const leaveSchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending'
   },
+  days: {
+    type: Number,
+    required: true
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
+});
+
+// Add pre-save middleware to calculate days
+leaveSchema.pre('save', function(next) {
+  if (this.startDate && this.endDate) {
+    this.days = calculateDays(this.startDate, this.endDate);
+  }
+  next();
 });
 
 // Create Leave model
@@ -86,8 +104,12 @@ app.get('/api/leaves/:id', async (req, res) => {
 // Create new leave
 app.post('/api/leaves', async (req, res) => {
   try {
-    // Check for duplicate leave application
     const { employeeId, startDate, endDate } = req.body;
+    
+    // Validate date range
+    if (!isValidDateRange(startDate, endDate)) {
+      return res.status(400).json({ message: 'End date must be after or equal to start date' });
+    }
     
     // Convert string dates to Date objects
     const start = new Date(startDate);
@@ -111,7 +133,14 @@ app.post('/api/leaves', async (req, res) => {
       });
     }
     
-    const newLeave = new Leave(req.body);
+    // Calculate number of days
+    const days = calculateDays(startDate, endDate);
+    
+    const newLeave = new Leave({
+      ...req.body,
+      days
+    });
+    
     const savedLeave = await newLeave.save();
     res.status(201).json(savedLeave);
   } catch (error) {
@@ -122,6 +151,18 @@ app.post('/api/leaves', async (req, res) => {
 // Update leave
 app.put('/api/leaves/:id', async (req, res) => {
   try {
+    const { startDate, endDate } = req.body;
+    
+    // Validate date range if both dates are provided
+    if (startDate && endDate && !isValidDateRange(startDate, endDate)) {
+      return res.status(400).json({ message: 'End date must be after or equal to start date' });
+    }
+    
+    // If dates are provided, calculate days
+    if (startDate && endDate) {
+      req.body.days = calculateDays(startDate, endDate);
+    }
+    
     const updatedLeave = await Leave.findByIdAndUpdate(
       req.params.id, 
       req.body, 
@@ -188,8 +229,16 @@ app.post('/api/leaves/batch', async (req, res) => {
     // Process each leave request
     for (const leaveRequest of leaveRequests) {
       try {
-        // Check for duplicate leave application
         const { employeeId, startDate, endDate } = leaveRequest;
+        
+        // Validate date range
+        if (!isValidDateRange(startDate, endDate)) {
+          results.failures.push({
+            data: leaveRequest,
+            error: 'End date must be after or equal to start date'
+          });
+          continue;
+        }
         
         // Convert string dates to Date objects
         const start = new Date(startDate);
@@ -215,7 +264,14 @@ app.post('/api/leaves/batch', async (req, res) => {
           continue;
         }
         
-        const newLeave = new Leave(leaveRequest);
+        // Calculate number of days
+        const days = calculateDays(startDate, endDate);
+        
+        const newLeave = new Leave({
+          ...leaveRequest,
+          days
+        });
+        
         const savedLeave = await newLeave.save();
         results.success.push(savedLeave);
       } catch (error) {
@@ -236,6 +292,97 @@ app.post('/api/leaves/batch', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Get leave statistics
+app.get('/api/stats', async (req, res) => {
+  try {
+    const totalLeaves = await Leave.countDocuments();
+    const pendingLeaves = await Leave.countDocuments({ status: 'Pending' });
+    const approvedLeaves = await Leave.countDocuments({ status: 'Approved' });
+    const rejectedLeaves = await Leave.countDocuments({ status: 'Rejected' });
+    
+    // Get leaves by type
+    const annualLeaves = await Leave.countDocuments({ leaveType: 'Annual' });
+    const sickLeaves = await Leave.countDocuments({ leaveType: 'Sick' });
+    const emergencyLeaves = await Leave.countDocuments({ leaveType: 'Emergency' });
+    
+    res.json({
+      total: totalLeaves,
+      byStatus: {
+        pending: pendingLeaves,
+        approved: approvedLeaves,
+        rejected: rejectedLeaves
+      },
+      byType: {
+        annual: annualLeaves,
+        sick: sickLeaves,
+        emergency: emergencyLeaves
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get employee leave summary
+app.get('/api/employees/:employeeId/summary', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    
+    const leaves = await Leave.find({ employeeId });
+    
+    if (leaves.length === 0) {
+      return res.status(404).json({ message: 'No leave records found for this employee' });
+    }
+    
+    // Calculate total days by leave type
+    const totalDays = leaves.reduce((acc, leave) => acc + leave.days, 0);
+    const annualDays = leaves
+      .filter(leave => leave.leaveType === 'Annual')
+      .reduce((acc, leave) => acc + leave.days, 0);
+    const sickDays = leaves
+      .filter(leave => leave.leaveType === 'Sick')
+      .reduce((acc, leave) => acc + leave.days, 0);
+    const emergencyDays = leaves
+      .filter(leave => leave.leaveType === 'Emergency')
+      .reduce((acc, leave) => acc + leave.days, 0);
+    
+    // Get the employee name from the most recent record
+    const employeeName = leaves[0].name;
+    
+    res.json({
+      employeeId,
+      name: employeeName,
+      totalLeaves: leaves.length,
+      totalDays,
+      byType: {
+        annual: annualDays,
+        sick: sickDays,
+        emergency: emergencyDays
+      },
+      recentLeaves: leaves.slice(0, 5) // Return 5 most recent leaves
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folder
+  app.use(express.static('public'));
+  
+  // Any route that is not an API route should serve the index.html
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
+    }
+  });
+}
+
+// Import error handler middleware
+const errorHandler = require('./middleware/error');
+app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {

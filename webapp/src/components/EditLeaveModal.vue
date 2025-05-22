@@ -1,94 +1,74 @@
 <template>
-  <div v-if="isOpen" class="modal-backdrop">
+  <div class="modal-backdrop">
     <div class="modal">
       <div class="modal-header">
-        <h2 class="modal-title">Edit Leave Application</h2>
-        <button @click="$emit('close')" class="modal-close">&times;</button>
+        <h3 class="modal-title">Edit Leave Application</h3>
+        <button class="modal-close" @click="$emit('close')">&times;</button>
       </div>
+      
       <div class="modal-body">
-        <div v-if="formError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {{ formError }}
-        </div>
         <form @submit.prevent="submitForm">
-          <div class="grid grid-cols-2">
-            <div class="form-group">
-              <label for="edit-employeeId" class="form-label">Employee ID</label>
-              <input
-                id="edit-employeeId"
-                v-model="formData.employeeId"
-                type="text"
-                required
-                class="form-control"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="edit-name" class="form-label">Name</label>
-              <input
-                id="edit-name"
-                v-model="formData.name"
-                type="text"
-                required
-                class="form-control"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="edit-leaveType" class="form-label">Leave Type</label>
-              <select
-                id="edit-leaveType"
-                v-model="formData.leaveType"
-                required
-                class="form-select"
-              >
-                <option value="Annual">Annual</option>
-                <option value="Sick">Sick</option>
-                <option value="Emergency">Emergency</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="edit-startDate" class="form-label">Start Date</label>
-              <input
-                id="edit-startDate"
-                v-model="formData.startDate"
-                type="date"
-                required
-                class="form-control"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="edit-endDate" class="form-label">End Date</label>
-              <input
-                id="edit-endDate"
-                v-model="formData.endDate"
-                type="date"
-                required
-                class="form-control"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="edit-status" class="form-label">Status</label>
-              <select
-                id="edit-status"
-                v-model="formData.status"
-                required
-                class="form-select"
-              >
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label class="form-label">Employee ID</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="formData.employeeId" 
+              required
+            >
           </div>
-
+          
+          <div class="form-group">
+            <label class="form-label">Employee Name</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="formData.name" 
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Leave Type</label>
+            <select class="form-select" v-model="formData.leaveType" required>
+              <option value="Annual">Annual Leave</option>
+              <option value="Sick">Sick Leave</option>
+              <option value="Emergency">Emergency Leave</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input 
+              type="date" 
+              class="form-control" 
+              v-model="formData.startDate" 
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input 
+              type="date" 
+              class="form-control" 
+              v-model="formData.endDate" 
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" v-model="formData.status" required>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          
           <div class="modal-footer">
-            <button type="button" @click="$emit('close')" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
-              {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
-            </button>
+            <button type="button" class="btn btn-secondary" @click="$emit('close')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Update Leave</button>
           </div>
         </form>
       </div>
@@ -97,23 +77,20 @@
 </template>
 
 <script>
-import { reactive, ref, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 
 export default {
+  name: 'EditLeaveModal',
   props: {
-    isOpen: {
-      type: Boolean,
-      required: true
-    },
-    application: {
+    leave: {
       type: Object,
       required: true
     }
   },
-  emits: ['close', 'submit'],
+  emits: ['close', 'update'],
   setup(props, { emit }) {
-    const formData = reactive({
-      _id: '',
+    const formData = ref({
+      id: '',
       employeeId: '',
       name: '',
       leaveType: '',
@@ -122,67 +99,107 @@ export default {
       status: ''
     });
     
-    const formError = ref(null);
-    const isSubmitting = ref(false);
-
-    // Format dates for input fields
-    function formatDateForInput(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toISOString().split('T')[0];
-    }
-
-    // Update form data when the application prop changes
-    watch(() => props.application, (newApplication) => {
-      if (newApplication) {
-        formData._id = newApplication._id;
-        formData.employeeId = newApplication.employeeId;
-        formData.name = newApplication.name;
-        formData.leaveType = newApplication.leaveType;
-        formData.startDate = formatDateForInput(newApplication.startDate);
-        formData.endDate = formatDateForInput(newApplication.endDate);
-        formData.status = newApplication.status;
-      }
-    }, { immediate: true });
-
-    function validateDates() {
-      if (!formData.startDate || !formData.endDate) return true;
+    onMounted(() => {
+      // Format dates for input fields
+      const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+      };
       
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
+      formData.value = {
+        ...props.leave,
+        startDate: formatDate(props.leave.startDate),
+        endDate: formatDate(props.leave.endDate)
+      };
+    });
+    
+    const submitForm = () => {
+      // Validate dates
+      const startDate = new Date(formData.value.startDate);
+      const endDate = new Date(formData.value.endDate);
       
-      if (end < start) {
-        formError.value = 'End date cannot be before start date';
-        return false;
-      }
-      
-      return true;
-    }
-
-    async function submitForm() {
-      formError.value = null;
-      
-      if (!validateDates()) {
+      if (endDate < startDate) {
+        alert('End date cannot be before start date');
         return;
       }
       
-      isSubmitting.value = true;
-      
-      try {
-        emit('submit', { ...formData });
-      } catch (error) {
-        formError.value = error.message || 'An error occurred while updating the leave application';
-      } finally {
-        isSubmitting.value = false;
-      }
-    }
-
+      emit('update', formData.value);
+    };
+    
     return {
       formData,
-      formError,
-      isSubmitting,
       submitForm
     };
   }
 };
 </script>
+
+<style scoped>
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  animation: modal-appear 0.3s ease;
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--dhl-border);
+}
+
+.modal-title {
+  margin: 0;
+  color: var(--dhl-red);
+  font-size: 1.25rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--dhl-border);
+  margin-top: 1rem;
+}
+</style>

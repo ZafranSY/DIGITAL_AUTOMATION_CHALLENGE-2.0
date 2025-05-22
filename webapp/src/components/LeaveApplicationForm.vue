@@ -1,165 +1,221 @@
 <template>
-  <div class="card">
-    <h2 class="text-lg font-medium mb-4">Add Leave Application</h2>
-    <div v-if="formError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-      {{ formError }}
+  <div class="leave-form-container">
+    <div class="leave-form">
+      <div class="form-header">
+        <h3>New Leave Application</h3>
+        <button class="close-btn" @click="$emit('close')">&times;</button>
+      </div>
+      
+      <form @submit.prevent="submitForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Employee ID</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="formData.employeeId" 
+              placeholder="Enter employee ID"
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Employee Name</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="formData.name" 
+              placeholder="Enter employee name"
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Leave Type</label>
+            <select class="form-select" v-model="formData.leaveType" required>
+              <option value="" disabled>Select leave type</option>
+              <option value="Annual">Annual Leave</option>
+              <option value="Sick">Sick Leave</option>
+              <option value="Emergency">Emergency Leave</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input 
+              type="date" 
+              class="form-control" 
+              v-model="formData.startDate" 
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input 
+              type="date" 
+              class="form-control" 
+              v-model="formData.endDate" 
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" v-model="formData.status" required>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="$emit('close')">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">
+            Submit Application
+          </button>
+        </div>
+      </form>
     </div>
-    <form @submit.prevent="submitForm">
-      <div class="grid grid-cols-2">
-        <div class="form-group">
-          <label for="employeeId" class="form-label">Employee ID</label>
-          <input
-            id="employeeId"
-            v-model="formData.employeeId"
-            type="text"
-            required
-            placeholder="Enter Employee ID"
-            class="form-control"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="name" class="form-label">Name</label>
-          <input
-            id="name"
-            v-model="formData.name"
-            type="text"
-            required
-            placeholder="Enter Employee Name"
-            class="form-control"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="leaveType" class="form-label">Leave Type</label>
-          <select
-            id="leaveType"
-            v-model="formData.leaveType"
-            required
-            class="form-select"
-          >
-            <option value="Annual">Annual</option>
-            <option value="Sick">Sick</option>
-            <option value="Emergency">Emergency</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="startDate" class="form-label">Start Date</label>
-          <input
-            id="startDate"
-            v-model="formData.startDate"
-            type="date"
-            required
-            class="form-control"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="endDate" class="form-label">End Date</label>
-          <input
-            id="endDate"
-            v-model="formData.endDate"
-            type="date"
-            required
-            class="form-control"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="status" class="form-label">Status</label>
-          <select
-            id="status"
-            v-model="formData.status"
-            required
-            class="form-select"
-          >
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="mt-6 flex gap-4">
-        <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Submitting...' : 'Submit' }}
-        </button>
-        <button type="button" @click="resetForm" class="btn btn-secondary">Reset</button>
-      </div>
-    </form>
   </div>
 </template>
 
 <script>
-import { reactive, ref } from 'vue';
-import { LeaveTypes, StatusTypes } from '../types';
+import { ref } from 'vue';
 
 export default {
-  emits: ['submit'],
+  name: 'LeaveApplicationForm',
+  emits: ['close', 'submit'],
   setup(props, { emit }) {
-    const formData = reactive({
+    const formData = ref({
       employeeId: '',
       name: '',
-      leaveType: LeaveTypes.ANNUAL,
+      leaveType: '',
       startDate: '',
       endDate: '',
-      status: StatusTypes.PENDING
+      status: 'Pending'
     });
-
-    const formError = ref(null);
-    const isSubmitting = ref(false);
-
-    function validateDates() {
-      if (!formData.startDate || !formData.endDate) return true;
+    
+    const submitForm = () => {
+      // Validate dates
+      const startDate = new Date(formData.value.startDate);
+      const endDate = new Date(formData.value.endDate);
       
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
-      
-      if (end < start) {
-        formError.value = 'End date cannot be before start date';
-        return false;
-      }
-      
-      return true;
-    }
-
-    async function submitForm() {
-      formError.value = null;
-      
-      if (!validateDates()) {
+      if (endDate < startDate) {
+        alert('End date cannot be before start date');
         return;
       }
       
-      isSubmitting.value = true;
+      emit('submit', formData.value);
       
-      try {
-        emit('submit', { ...formData });
-        resetForm();
-      } catch (error) {
-        formError.value = error.message || 'An error occurred while submitting the form';
-      } finally {
-        isSubmitting.value = false;
-      }
-    }
-
-    function resetForm() {
-      formData.employeeId = '';
-      formData.name = '';
-      formData.leaveType = LeaveTypes.ANNUAL;
-      formData.startDate = '';
-      formData.endDate = '';
-      formData.status = StatusTypes.PENDING;
-      formError.value = null;
-    }
-
+      // Reset form
+      formData.value = {
+        employeeId: '',
+        name: '',
+        leaveType: '',
+        startDate: '',
+        endDate: '',
+        status: 'Pending'
+      };
+    };
+    
     return {
       formData,
-      formError,
-      isSubmitting,
-      submitForm,
-      resetForm
+      submitForm
     };
   }
 };
 </script>
+
+<style scoped>
+.leave-form-container {
+  margin-bottom: 2rem;
+  animation: form-appear 0.4s ease;
+}
+
+@keyframes form-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.leave-form {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-top: 4px solid var(--dhl-yellow);
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--dhl-border);
+}
+
+.form-header h3 {
+  margin: 0;
+  color: var(--dhl-red);
+  font-size: 1.25rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-control, .form-select {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--dhl-border);
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--dhl-yellow);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 204, 0, 0.25);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--dhl-gray);
+}
+</style>

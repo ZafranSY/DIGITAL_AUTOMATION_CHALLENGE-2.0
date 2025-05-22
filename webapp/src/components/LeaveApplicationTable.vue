@@ -1,78 +1,258 @@
 <template>
-  <div class="overflow-x-auto">
-    <table>
-      <thead>
-        <tr>
-          <th>Employee ID</th>
-          <th>Name</th>
-          <th>Leave Type</th>
-          <th>Start Date</th>
-          <th>End Date</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="application in applications" :key="application.id">
-          <td>{{ application.employeeId }}</td>
-          <td>{{ application.name }}</td>
-          <td>{{ application.leaveType }}</td>
-          <td>{{ application.startDate }}</td>
-          <td>{{ application.endDate }}</td>
-          <td :class="getStatusClass(application.status)">{{ application.status }}</td>
-          <td>
-            <div class="flex gap-2">
-              <button @click="$emit('edit', application)" class="text-blue-500">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-              </button>
-              <button @click="$emit('delete', application.id)" class="text-red-500">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  <line x1="10" y1="11" x2="10" y2="17"></line>
-                  <line x1="14" y1="11" x2="14" y2="17"></line>
-                </svg>
-              </button>
-            </div>
-          </td>
-        </tr>
-        <tr v-if="applications.length === 0">
-          <td colspan="7" class="text-center py-4">No leave applications found</td>
-        </tr>
-      </tbody>
-    </table>
+  <div class="leave-table-container">
+    <div v-if="leaves.length === 0" class="no-leaves">
+      <div class="empty-state">
+        <i class="fas fa-calendar-times"></i>
+        <p>No leave applications found</p>
+      </div>
+    </div>
+    
+    <div v-else class="table-responsive">
+      <table class="leave-table">
+        <thead>
+          <tr>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Leave Type</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="leave in leaves" :key="leave.id" :class="'status-' + leave.status.toLowerCase()">
+            <td>{{ leave.employeeId }}</td>
+            <td>{{ leave.name }}</td>
+            <td>{{ leave.leaveType }}</td>
+            <td>{{ formatDate(leave.startDate) }}</td>
+            <td>{{ formatDate(leave.endDate) }}</td>
+            <td>{{ calculateDuration(leave.startDate, leave.endDate) }} days</td>
+            <td>
+              <span class="status-badge" :class="'status-' + leave.status.toLowerCase()">
+                {{ leave.status }}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button class="action-btn edit" @click="$emit('edit', leave)" title="Edit">
+                  <i class="fas fa-edit"></i>
+                </button>
+                
+                <div class="status-actions" v-if="leave.status === 'Pending'">
+                  <button 
+                    class="action-btn approve" 
+                    @click="$emit('status-change', leave.id, 'Approved')"
+                    title="Approve"
+                  >
+                    <i class="fas fa-check"></i>
+                  </button>
+                  
+                  <button 
+                    class="action-btn reject" 
+                    @click="$emit('status-change', leave.id, 'Rejected')"
+                    title="Reject"
+                  >
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                
+                <button class="action-btn delete" @click="$emit('delete', leave.id)" title="Delete">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <script>
-import { StatusTypes } from '../types';
-
 export default {
+  name: 'LeaveApplicationTable',
   props: {
-    applications: {
+    leaves: {
       type: Array,
       required: true
     }
   },
-  emits: ['edit', 'delete'],
+  emits: ['edit', 'delete', 'status-change'],
   setup() {
-    function getStatusClass(status) {
-      switch (status) {
-        case StatusTypes.APPROVED:
-          return 'status-approved';
-        case StatusTypes.REJECTED:
-          return 'status-rejected';
-        default:
-          return 'status-pending';
-      }
-    }
-
+    const formatDate = (dateString) => {
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString(undefined, options);
+    };
+    
+    const calculateDuration = (startDate, endDate) => {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end - start);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+      return diffDays;
+    };
+    
     return {
-      getStatusClass
+      formatDate,
+      calculateDuration
     };
   }
 };
 </script>
+
+<style scoped>
+.leave-table-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.leave-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leave-table th {
+  background-color: var(--dhl-red);
+  color: white;
+  text-align: left;
+  padding: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.leave-table th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.leave-table th:last-child {
+  border-top-right-radius: 8px;
+}
+
+.leave-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--dhl-border);
+}
+
+.leave-table tbody tr:hover {
+  background-color: rgba(255, 204, 0, 0.05);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-pending {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--status-pending);
+}
+
+.status-approved {
+  background-color: rgba(22, 163, 74, 0.1);
+  color: var(--status-approved);
+}
+
+.status-rejected {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--status-rejected);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn.edit {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.action-btn.edit:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.action-btn.approve {
+  background-color: rgba(22, 163, 74, 0.1);
+  color: var(--status-approved);
+}
+
+.action-btn.approve:hover {
+  background-color: rgba(22, 163, 74, 0.2);
+}
+
+.action-btn.reject {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--status-rejected);
+}
+
+.action-btn.reject:hover {
+  background-color: rgba(220, 38, 38, 0.2);
+}
+
+.action-btn.delete {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--status-rejected);
+}
+
+.action-btn.delete:hover {
+  background-color: rgba(220, 38, 38, 0.2);
+}
+
+.status-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.no-leaves {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #ccc;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+}
+</style>
