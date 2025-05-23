@@ -158,12 +158,26 @@ app.put("/api/approveleaves/:employeeId", async (req, res) => {
 })
 app.post("/api/addleaves", async (req, res)=>{
   try {
-    const newLeaves = req.body;
-    Leave.push(newLeaves)
-      res.status(201).json(newLeave);
+    const newLeaves = new Leave(req.body)
+    const saveLeaves = await newLeaves.save();
+      res.status(201).json(saveLeaves);
 
   } catch (error) {
         res.status(400).json({ error: error.message });
+
+  }
+})
+app.delete("api/deleteleaves/:employeeId", async(req, res)=>{
+  try {
+    const employeeId = req.params.employeeId;
+    const result = await Leave.deleteOne({employeeId: employeeId})
+    if (result.deletedCount > 0) {
+                    res.status(200).send({ message: 'Document deleted successfully' });
+                } else {
+                    res.status(404).send({ message: 'Document not found' });
+                }
+  } catch (error) {
+   res.status(500).send({ error: 'An error occurred' });
 
   }
 })

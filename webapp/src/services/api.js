@@ -32,8 +32,8 @@ export default {
   },
 
   // Delete a leave
-  deleteLeave(id) {
-    return apiClient.delete(`/deleteleaves/${id}`);
+  deleteLeave(employeeId) {
+    return apiClient.delete(`/deleteleaves/${employeeId}`);
   },
 
   // Reject a leave
