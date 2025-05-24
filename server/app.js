@@ -167,7 +167,7 @@ app.post("/api/addleaves", async (req, res)=>{
 
   }
 })
-app.delete("api/deleteleaves/:employeeId", async(req, res)=>{
+app.delete("/api/deleteleaves/:employeeId", async(req, res)=>{
   try {
     const employeeId = req.params.employeeId;
     const result = await Leave.deleteOne({employeeId: employeeId})

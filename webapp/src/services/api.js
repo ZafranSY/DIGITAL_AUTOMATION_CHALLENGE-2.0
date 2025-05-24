@@ -27,8 +27,8 @@ export default {
   },
 
   // Update a leave
-  updateLeave(id, leave) {
-    return apiClient.put(`/leaves/${id}`, leave);
+  updateLeave(employeeId, leave) {
+    return apiClient.put(`/leaves/${employeeId}`, leave);
   },
 
   // Delete a leave
